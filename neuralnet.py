@@ -1,89 +1,148 @@
 import numpy as np
+import scipy as sp
+import functions.activation as af
+import functions.cost as cf
+from copy import deepcopy
+from sympy import *
+from timeit import default_timer as timer
 
 class multilayer_perceptron():
 
-    def __init__(self):
+    def __init__(self,layers,nn_hidden_dim = 3,n_iter=10000,reg_lambda=0.01,epsilon=0.01,random_state = 0,cost = 'dist',expr = None,print_loss=True):
         self.x = []
         self.y = []
-        self.nn_input_dim = 0;
-        self.nn_onput_dim = 0;
-        self.num_examples = 0
-        self.epsilon = 0.01
-        self.reg_lambda = 0.01
         self.model = {}
+        self.num_examples = 0
+        self.nn_input_dim = 0
+        self.layers = layers # neural net layers list
+        self.num_layers = len(layers) # number of neural net layers
+        self.epsilon = epsilon # learning rate
+        self.reg_lambda = reg_lambda # regularization
+        self.n_iter = n_iter # n iteration
+        self.print_loss = print_loss # print loss
+        self.random_state = random_state # random seed
+        self.cost = cost #
+        self.expr = expr
+        self.act_type = [] # list of activation type
+        self.output_dim = [] # list of ouput dimensional per layer
+        for layer in layers:
+            self.act_type.append(layer.get_activation())
+            self.output_dim.append(layer.get_n_units())
 
-    def calculate_loss(self,model):
-        W1,b1,W2,b2 = model['W1'],model['b1'],model['W2'],model['b2']
-        z1 = self.x.dot(W1)+b1
-        a1 = np.tanh(z1)
-        z2 = a1.dot(W2)+b2
-        exp_scores = np.exp(z2)
-        probs = exp_scores / np.sum(exp_scores,axis=1,keepdims=True)
+        if expr is not None:
+            self.pred = Symbol("y")
+            self.target = Symbol("y_")
+            self.derive_c = (expr).diff(self.pred)
 
-        #Calculating the loss
-        corect_logprobs = -np.log(probs[range(self.num_examples),self.y])
-        data_loss = np.sum(corect_logprobs)
+    def logloss(self):
+        probs = self.predict_proba(self.x)
+        # Calculating the loss
+        epsilon = 1e-15
+        probs = sp.maximum(epsilon, probs)
+        probs = sp.minimum(1 - epsilon, probs)
+        ll = sum(self.y * sp.log(probs) + sp.subtract(1, self.y) * sp.log(sp.subtract(1, probs)))
+        ll = ll * -1.0 / len(self.y)
 
-        #Add regulatization term to loss
-        data_loss += self.reg_lambda / 2 * (np.sum(np.square(W1)) + np.sum(np.square(W2)))
-        return 1. / self.num_examples * data_loss
+        return ll[0]
 
     def predict(self,xx):
-        W1, b1, W2, b2 = self.model['W1'], self.model['b1'], self.model['W2'],self.model['b2']
-        # Forward propagation
-        z1 = xx.dot(W1) + b1
-        a1 = np.tanh(z1)
-        z2 = a1.dot(W2) + b2
-        exp_scores = np.exp(z2)
-        probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+        weights = self.model["weight"]
+        bias = self.model["bias"]
+        a = [None] * self.num_layers
+        z = [None] * self.num_layers
+        a[0] = xx
+        probs = 0;
+        for idx in range(self.num_layers):
+            z[idx] = a[idx].dot(weights[idx]) + bias[idx]
+            if idx + 1 < self.num_layers:
+                a[idx + 1] = af.activation[self.act_type[idx]](z[idx])
+            else:
+                probs = af.activation[self.act_type[idx]](z[idx])
         return np.argmax(probs, axis=1)
 
-    def fit(self,X,Y,nn_h_dim = 3,num_passes=10000,reg_lambda=0.01,epsilon=0.01,print_loss=False):
 
+    def predict_proba(self,xx):
+        weights = self.model["weight"]
+        bias = self.model["bias"]
+        a = [None] * self.num_layers
+        z = [None] * self.num_layers
+        a[0] = xx
+        probs = 0;
+        for idx in range(self.num_layers):
+            z[idx] = a[idx].dot(weights[idx]) + bias[idx]
+            if idx + 1 < self.num_layers:
+                a[idx + 1] = af.activation[self.act_type[idx]](z[idx])
+            else:
+                probs = af.activation[self.act_type[idx]](z[idx])
+        return probs
+
+    def fit(self,X,Y):
         self.x = X
-        self.y = Y
+        self.y = deepcopy(Y)
         self.nn_input_dim = len(X[0])
-        self.nn_output_dim = len(set(Y))
-        self.reg_lambda = reg_lambda
-        self.epsilon = epsilon
         self.num_examples = len(X)
 
-        np.random.seed(0)
-        W1 = np.random.randn(self.nn_input_dim, nn_h_dim) / np.sqrt(self.nn_input_dim)
-        b1 = np.zeros((1, nn_h_dim))
-        W2 = np.random.randn(nn_h_dim, self.nn_output_dim) / np.sqrt(nn_h_dim)
-        b2 = np.zeros((1, self.nn_output_dim))
+        weights = [None]*self.num_layers
+        derive_weights = [None]*self.num_layers
+        bias = [None]*self.num_layers
+        derive_bias = [None]*self.num_layers
+        a = [None]*self.num_layers
+        z = [None]*self.num_layers
+        delta = [None] * self.num_layers
 
-        for i in range(0,num_passes):
+        a[0] = X # set training data
+
+        np.random.seed(self.random_state)
+
+        for idx in range(self.num_layers):
+            if idx is 0:
+                weights[idx] = (np.random.randn(self.nn_input_dim, self.output_dim[idx]) / np.sqrt(self.nn_input_dim))
+            else:
+                weights[idx] = (
+                np.random.randn(self.output_dim[idx - 1], self.output_dim[idx]) / np.sqrt(self.output_dim[idx - 1]))
+            bias[idx] = np.zeros((1, self.output_dim[idx]))
+
+        for i in range(0,self.n_iter):
+            probs = None
             # Forward propagation
-            z1 = X.dot(W1) + b1
-            a1 = np.tanh(z1)
-            z2 = a1.dot(W2) + b2
-            exp_scores = np.exp(z2)
-            probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+            for idx in range(self.num_layers):
+                z[idx] = a[idx].dot(weights[idx]) + bias[idx]
+                if idx+1 < self.num_layers: a[idx+1] = af.activation[self.act_type[idx]](z[idx])
+                else: probs = af.activation[self.act_type[idx]](z[idx])
 
             # Backpropagation
-            delta3 = probs
-            delta3[range(len(X)), Y] -= 1
-            dW2 = (a1.T).dot(delta3)
-            db2 = np.sum(delta3, axis=0, keepdims=True)
-            delta2 = delta3.dot(W2.T) * (1 - np.power(a1, 2))
-            dW1 = np.dot(X.T, delta2)
-            db1 = np.sum(delta2, axis=0)
+            for idx in reversed(range(self.num_layers)):
+                if idx + 1 < self.num_layers:
+                    delta[idx] = delta[idx+1].dot(weights[idx+1].T) * af.activation_Grad[self.act_type[idx]](a[idx+1])
+                else:
+                    if self.expr is None: delta[idx] = cf.cost[self.cost](probs,self.y)
+                    else: delta[idx] = cf.derived_func(self.derive_c,probs,self.y)
+                derive_weights[idx] = (a[idx].T).dot(delta[idx])
+                derive_bias[idx] = np.sum(delta[idx], axis=0, keepdims=True)
 
             # Add regularization terms
-            dW2 += self.reg_lambda * W2
-            dW1 += self.reg_lambda * W1
+            for idx in range(self.num_layers):
+                derive_weights[idx] += self.reg_lambda * weights[idx]
 
             # Gradient descent parameter update
-            W1 += -self.epsilon * dW1
-            b1 += -self.epsilon * db1
-            W2 += -self.epsilon * dW2
-            b2 += -self.epsilon * db2
+            for idx in range(self.num_layers):
+                weights[idx] += -self.epsilon * derive_weights[idx]
+                bias[idx] += -self.epsilon * derive_bias[idx]
 
-            self.model = {'W1': W1, 'b1': b1, 'W2': W2, 'b2': b2}
+            self.model = {'weight': weights, 'bias': bias}
 
-            if print_loss and i % 1000 == 0:
-                print("Loss after iteration ",i, self.calculate_loss(self.model))
+            if self.print_loss and i % 100 == 0:
+                print("Loss after iteration ",i, self.logloss())
 
         return self.model
+
+class layer():
+    def __init__(self, activation="tanh", n_units=3):
+        self.activation = activation
+        self.n_units = n_units
+
+    def get_n_units(self):
+        return self.n_units
+
+    def get_activation(self):
+        return self.activation

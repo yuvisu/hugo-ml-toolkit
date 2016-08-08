@@ -1,7 +1,9 @@
 import numpy as np
+import pandas as pd
+import neuralnet as nn
 import matplotlib.pyplot as plt
 from sklearn import datasets
-from neuralnet import multilayer_perceptron
+from timeit import default_timer as timer
 
 def generateData():
     np.random.seed(0)
@@ -24,10 +26,19 @@ def plot_decision_boundary(pred_func,X,y):
 
 def main():
     X, y = generateData()
-    clf = multilayer_perceptron()
-    clf.fit(X, y ,print_loss=True)
+    start = timer()
+    clf = nn.multilayer_perceptron(layers=[
+        nn.layer("tanh",4),
+        nn.layer("softmax",2)
+    ])
+    yt = pd.get_dummies(y,prefix='class').values
+    clf.fit(X, yt)
+
+    timeusage = timer() - start
+    print("%f seconds"%timeusage)
 
     y_ = clf.predict(X)
+    print(y_)
     count = 0;
     for i in range(len(y)):
         if (y[i] == y_[i]): count += 1
