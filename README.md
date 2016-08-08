@@ -1,12 +1,16 @@
-### implement multilayer perceptron
+###  implement neural network(BP)
 
-- 类似sciki learn的使用方法；
-    clf = multilayer_perceptron()
-    clf.fit(X, y ,print_loss=True)
-- 目前只是单纯的练习
-- Hidden layer activation function 为 tanh,可以设置node数目
-- Output layer activation function 为 softmax
-- 使用方法如demo
+- 为了练习写的library；
+- 简单易用；
+- 目前没有gpu加速；
+- 以后再慢慢实作其它内容
+# 用法
 
+**code**
 
-
+> clf = nn.multilayer_perceptron(layers=[
+        nn.layer("tanh",4),
+        nn.layer("softmax",2)
+    ])
+    yt = pd.get_dummies(y,prefix='class').values
+    clf.fit(X, yt)
