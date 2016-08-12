@@ -3,4 +3,8 @@
 
 # cache
 __pycache__/
+<<<<<<< HEAD
 functions/__pycache__/
+=======
+functions/__pycache__/
+>>>>>>> 2ab0951518cfa239f0eabd0c54a874d180f76e1f
