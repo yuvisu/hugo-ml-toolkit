@@ -131,8 +131,8 @@ class multilayer_perceptron():
 
             # Gradient descent parameter update
             for idx in range(self.num_layers):
-                weights[idx] += self.optimizer.function[self.opt_function](self.epsilon,derive_weights[idx])
-                bias[idx] += self.optimizer.function[self.opt_function](self.epsilon,derive_bias[idx])
+                weights[idx] += self.optimizer.function(self.opt_function,self.epsilon,derive_weights[idx])
+                bias[idx] += self.optimizer.function(self.opt_function,self.epsilon,derive_bias[idx])
 
             self.model = {'weight': weights, 'bias': bias}
 
