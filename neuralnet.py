@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import functions.activation as af
+import functions.optimizer as opt
 import functions.cost as cf
 from copy import deepcopy
 from sympy import *
@@ -8,7 +9,8 @@ from timeit import default_timer as timer
 
 class multilayer_perceptron():
 
-    def __init__(self,layers,nn_hidden_dim = 3,n_iter=10000,reg_lambda=0.01,epsilon=0.01,random_state = 0,cost = 'dist',expr = None,print_loss=True):
+    def __init__(self,layers,n_iter=10000,reg_lambda=0.01,epsilon=0.01,random_state = 0,cost = 'dist',expr = None,
+                 optimizer = 'gredientDescent',momentum = 0.1,decay = 0.1,print_loss=True):
         self.x = []
         self.y = []
         self.model = {}
@@ -23,6 +25,9 @@ class multilayer_perceptron():
         self.random_state = random_state # random seed
         self.cost = cost #
         self.expr = expr
+        self.optimizer = optimizer
+        self.momentum = momentum
+        self.decay = decay
         self.act_type = [] # list of activation type
         self.output_dim = [] # list of ouput dimensional per layer
         for layer in layers:
@@ -60,7 +65,6 @@ class multilayer_perceptron():
                 probs = af.activation[self.act_type[idx]](z[idx])
         return np.argmax(probs, axis=1)
 
-
     def predict_proba(self,xx):
         weights = self.model["weight"]
         bias = self.model["bias"]
@@ -88,6 +92,7 @@ class multilayer_perceptron():
         derive_bias = [None]*self.num_layers
         a = [None]*self.num_layers
         z = [None]*self.num_layers
+
         delta = [None] * self.num_layers
 
         a[0] = X # set training data
@@ -98,8 +103,7 @@ class multilayer_perceptron():
             if idx is 0:
                 weights[idx] = (np.random.randn(self.nn_input_dim, self.output_dim[idx]) / np.sqrt(self.nn_input_dim))
             else:
-                weights[idx] = (
-                np.random.randn(self.output_dim[idx - 1], self.output_dim[idx]) / np.sqrt(self.output_dim[idx - 1]))
+                weights[idx] = (np.random.randn(self.output_dim[idx - 1], self.output_dim[idx]) / np.sqrt(self.output_dim[idx - 1]))
             bias[idx] = np.zeros((1, self.output_dim[idx]))
 
         for i in range(0,self.n_iter):
@@ -126,8 +130,8 @@ class multilayer_perceptron():
 
             # Gradient descent parameter update
             for idx in range(self.num_layers):
-                weights[idx] += -self.epsilon * derive_weights[idx]
-                bias[idx] += -self.epsilon * derive_bias[idx]
+                weights[idx] += opt.optimizer[self.optimizer](self.epsilon,derive_weights[idx])
+                bias[idx] += opt.optimizer[self.optimizer](self.epsilon,derive_bias[idx])
 
             self.model = {'weight': weights, 'bias': bias}
 
