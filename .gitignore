@@ -1,1 +1,6 @@
 # PyCharm
+.idea/
+
+# cache
+__pycache__/
+functions/__pycache__/
