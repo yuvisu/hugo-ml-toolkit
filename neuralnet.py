@@ -10,7 +10,7 @@ from timeit import default_timer as timer
 class multilayer_perceptron():
 
     def __init__(self,layers,n_iter=10000,reg_lambda=0.01,epsilon=0.01,random_state = 0,cost = 'dist',expr = None,
-                 optimizer = 'gredientDescent',momentum = 0.1,decay = 0.1,print_loss=True):
+                 opt_function = 'gredientDescent',momentum = 0.1,decay = 0.1,print_loss=True):
         self.x = []
         self.y = []
         self.model = {}
@@ -25,7 +25,8 @@ class multilayer_perceptron():
         self.random_state = random_state # random seed
         self.cost = cost #
         self.expr = expr
-        self.optimizer = optimizer
+        self.optimizer = opt.optimizer(momentum= momentum,decay=decay)
+        self.opt_function = opt_function
         self.momentum = momentum
         self.decay = decay
         self.act_type = [] # list of activation type
@@ -130,8 +131,8 @@ class multilayer_perceptron():
 
             # Gradient descent parameter update
             for idx in range(self.num_layers):
-                weights[idx] += opt.optimizer[self.optimizer](self.epsilon,derive_weights[idx])
-                bias[idx] += opt.optimizer[self.optimizer](self.epsilon,derive_bias[idx])
+                weights[idx] += self.optimizer.function[self.opt_function](self.epsilon,derive_weights[idx])
+                bias[idx] += self.optimizer.function[self.opt_function](self.epsilon,derive_bias[idx])
 
             self.model = {'weight': weights, 'bias': bias}
 
