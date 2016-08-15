@@ -30,7 +30,7 @@ def main():
     clf = nn.multilayer_perceptron(layers=[
         nn.layer("logistic",4),
         nn.layer("softmax",2)
-    ])
+    ],opt_function='momentum')
     yt = pd.get_dummies(y,prefix='class').values
     clf.fit(X, yt)
 
