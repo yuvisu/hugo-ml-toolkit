@@ -12,10 +12,12 @@ def tanh(values):
 def tanhGrad(values):
     return 1 - np.power(values, 2)
 
-def sigmoid(values):
+def logistic(values):
     exp_scores = np.exp(-values)
-    result = 1./ 1+exp_scores
-    return result
+    return 1./(1+exp_scores)
+
+def logisticGrad(values):
+    return values - np.power(values, 2)
 
 def relu(values):
     return values * (values > 0)
@@ -24,14 +26,14 @@ def reluGrad(values):
     return (values > 0)
 
 activation = {
-    "sigmoid": sigmoid,
+    "logistic": logistic,
     "softmax": softmax,
     "tanh": tanh,
     "relu": relu,
 }
 
 activation_Grad = {
-    "sigmoid": sigmoid,
+    "logistic": logisticGrad,
     "softmax": softmax,
     "tanh": tanhGrad,
     "relu": reluGrad,

@@ -28,7 +28,7 @@ def main():
     X, y = generateData()
     start = timer()
     clf = nn.multilayer_perceptron(layers=[
-        nn.layer("tanh",4),
+        nn.layer("logistic",4),
         nn.layer("softmax",2)
     ])
     yt = pd.get_dummies(y,prefix='class').values
