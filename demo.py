@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 from sklearn import datasets
 from timeit import default_timer as timer
 
-def generateData():
-    np.random.seed(0)
-    X, y = datasets.make_moons(200, noise=0.20)
+def generateData(seed = 0):
+    np.random.seed(seed)
+    X, y = datasets.make_moons(500, noise=0.20)
     return X,y
 
 def plot_decision_boundary(pred_func,X,y):
@@ -27,12 +27,14 @@ def plot_decision_boundary(pred_func,X,y):
 def main():
     X, y = generateData()
     start = timer()
+    test_x,test_y = generateData(1992)
     clf = nn.multilayer_perceptron(layers=[
-        nn.layer("logistic",4),
+        nn.layer("tanh",4),
         nn.layer("softmax",2)
-    ],opt_function='momentum')
+    ],opt_function='momentum',drop_out=0.9)
     yt = pd.get_dummies(y,prefix='class').values
-    clf.fit(X, yt)
+    tyt = pd.get_dummies(test_y,prefix='class').values
+    clf.fit(test_x, tyt)
 
     timeusage = timer() - start
     print("%f seconds"%timeusage)

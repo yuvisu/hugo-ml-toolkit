@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import scipy as sp
 import functions.activation as af
@@ -9,8 +10,8 @@ from timeit import default_timer as timer
 
 class multilayer_perceptron():
 
-    def __init__(self,layers,n_iter=10000,reg_lambda=0.01,epsilon=0.01,random_state = 0,cost = 'dist',expr = None,
-                 opt_function = 'gredientDescent',momentum = 0.9,decay = 0.1,print_loss=True):
+    def __init__(self,layers,n_iter=1000,num_batch = 50,reg_lambda=0.01,epsilon=0.01,random_state = 0,cost = 'dist',expr = None,
+                 opt_function = 'gredientDescent',momentum = 0.9,drop_out = 1,print_loss=True):
         self.x = []
         self.y = []
         self.model = {}
@@ -18,17 +19,18 @@ class multilayer_perceptron():
         self.nn_input_dim = 0
         self.layers = layers # neural net layers list
         self.num_layers = len(layers) # number of neural net layers
+        self.num_batch = num_batch # number of batch
         self.epsilon = epsilon # learning rate
         self.reg_lambda = reg_lambda # regularization
         self.n_iter = n_iter # n iteration
         self.print_loss = print_loss # print loss
         self.random_state = random_state # random seed
-        self.cost = cost #
-        self.expr = expr
-        self.optimizer = opt.optimizer(momentum= momentum,decay=decay)
-        self.opt_function = opt_function
-        self.momentum = momentum
-        self.decay = decay
+        self.cost = cost # cost function
+        self.expr = expr # expression of cost function
+        self.optimizer = opt.optimizer(momentum= momentum) # optimizer
+        self.opt_function = opt_function #optimization function
+        self.momentum = momentum # momentum
+        self.drop_out = drop_out
         self.act_type = [] # list of activation type
         self.output_dim = [] # list of ouput dimensional per layer
         for layer in layers:
@@ -63,7 +65,7 @@ class multilayer_perceptron():
             if idx + 1 < self.num_layers:
                 a[idx + 1] = af.activation[self.act_type[idx]](z[idx])
             else:
-                probs = af.activation[self.act_type[idx]](z[idx])
+                probs = af.activation[self.act_type[idx]](z[idx]) * self.drop_out
         return np.argmax(probs, axis=1)
 
     def predict_proba(self,xx):
@@ -95,10 +97,10 @@ class multilayer_perceptron():
         derive_bias = [None]*self.num_layers
         a = [None]*self.num_layers
         z = [None]*self.num_layers
+        m = [None]*self.num_examples
 
         delta = [None] * self.num_layers
 
-        a[0] = X # set training data
 
         np.random.seed(self.random_state)
 
@@ -110,20 +112,29 @@ class multilayer_perceptron():
             bias[idx] = np.zeros((1, self.output_dim[idx]))
 
         for i in range(0,self.n_iter):
+            rn = random.randint(0, self.num_examples-self.num_batch)
+            train_x = X[rn:rn+self.num_batch]
+            train_y = self.y[rn:rn+self.num_batch]
+
+            a[0] = train_x  # set training data
             probs = None
             # Forward propagation
             for idx in range(self.num_layers):
                 z[idx] = a[idx].dot(weights[idx]) + bias[idx]
-                if idx+1 < self.num_layers: a[idx+1] = af.activation[self.act_type[idx]](z[idx])
-                else: probs = af.activation[self.act_type[idx]](z[idx])
+                if idx+1 < self.num_layers:
+                    a[idx+1] = af.activation[self.act_type[idx]](z[idx])
+                    m[idx] = np.random.binomial(1, self.drop_out, size=z[idx].shape)
+                    a[idx + 1] *= m[idx]
+                else:
+                    probs = af.activation[self.act_type[idx]](z[idx])
 
             # Backpropagation
             for idx in reversed(range(self.num_layers)):
                 if idx + 1 < self.num_layers:
                     delta[idx] = delta[idx+1].dot(weights[idx+1].T) * af.activation_Grad[self.act_type[idx]](a[idx+1])
                 else:
-                    if self.expr is None: delta[idx] = cf.cost[self.cost](probs,self.y)
-                    else: delta[idx] = cf.derived_func(self.derive_c,probs,self.y)
+                    if self.expr is None: delta[idx] = cf.cost[self.cost](probs,train_y)
+                    else: delta[idx] = cf.derived_func(self.derive_c,probs,train_y)
                 derive_weights[idx] = (a[idx].T).dot(delta[idx])
                 derive_bias[idx] = np.sum(delta[idx], axis=0, keepdims=True)
 
@@ -141,7 +152,7 @@ class multilayer_perceptron():
             self.model = {'weight': weights, 'bias': bias}
 
             if self.print_loss and i % 100 == 0:
-                print("Loss after iteration ",i, self.logloss())
+                print("Loss after iteration ",i, self.logloss()," batch ",rn)
 
         return self.model
 

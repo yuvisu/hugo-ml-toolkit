@@ -1,8 +1,7 @@
 import numpy as np
 class optimizer():
-    def __init__(self, momentum=0.9, decay=0.1):
+    def __init__(self, momentum=0.9):
         self.momentum = momentum
-        self.decay = 0.1
 
     def gredientDescent(self,epsilon,gredient,m):
         return -epsilon * gredient
