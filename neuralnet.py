@@ -10,7 +10,7 @@ from timeit import default_timer as timer
 class multilayer_perceptron():
 
     def __init__(self,layers,n_iter=10000,reg_lambda=0.01,epsilon=0.01,random_state = 0,cost = 'dist',expr = None,
-                 opt_function = 'gredientDescent',momentum = 0.1,decay = 0.1,print_loss=True):
+                 opt_function = 'gredientDescent',momentum = 0.9,decay = 0.1,print_loss=True):
         self.x = []
         self.y = []
         self.model = {}
@@ -88,8 +88,10 @@ class multilayer_perceptron():
         self.num_examples = len(X)
 
         weights = [None]*self.num_layers
+        weights_momentum = [None] * self.num_layers
         derive_weights = [None]*self.num_layers
         bias = [None]*self.num_layers
+        bias_momentum = [None] * self.num_layers
         derive_bias = [None]*self.num_layers
         a = [None]*self.num_layers
         z = [None]*self.num_layers
@@ -131,8 +133,10 @@ class multilayer_perceptron():
 
             # Gradient descent parameter update
             for idx in range(self.num_layers):
-                weights[idx] += self.optimizer.function(self.opt_function,self.epsilon,derive_weights[idx])
-                bias[idx] += self.optimizer.function(self.opt_function,self.epsilon,derive_bias[idx])
+                weights_momentum[idx] = self.optimizer.function(self.opt_function, self.epsilon, derive_weights[idx],weights_momentum[idx])
+                bias_momentum[idx] = self.optimizer.function(self.opt_function, self.epsilon, derive_bias[idx], bias_momentum[idx])
+                weights[idx] += weights_momentum[idx]
+                bias[idx] += bias_momentum[idx]
 
             self.model = {'weight': weights, 'bias': bias}
 
