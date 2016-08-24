@@ -4,9 +4,8 @@ import scipy as sp
 import functions.activation as af
 import functions.optimizer as opt
 import functions.cost as cf
-from copy import deepcopy
+import compoent.neuron as nr
 from sympy import *
-from timeit import default_timer as timer
 
 class multilayer_perceptron():
 
@@ -27,7 +26,7 @@ class multilayer_perceptron():
         self.random_state = random_state # random seed
         self.cost = cost # cost function
         self.expr = expr # expression of cost function
-        self.optimizer = opt.optimizer(momentum= momentum) # optimizer
+        self.optimizer = opt.optimizer(momentum= momentum,epsilon = epsilon) # optimizer
         self.opt_function = opt_function #optimization function
         self.momentum = momentum # momentum
         self.drop_out = drop_out
@@ -80,74 +79,73 @@ class multilayer_perceptron():
             if idx + 1 < self.num_layers:
                 a[idx + 1] = af.activation[self.act_type[idx]](z[idx])
             else:
-                probs = af.activation[self.act_type[idx]](z[idx])
+                probs = af.activation[self.act_type[idx]](z[idx]) * self.drop_out
         return probs
 
     def fit(self,X,Y):
-        self.x = X
-        self.y = deepcopy(Y)
-        self.nn_input_dim = len(X[0])
-        self.num_examples = len(X)
-
-        weights = [None]*self.num_layers
-        weights_momentum = [None] * self.num_layers
-        derive_weights = [None]*self.num_layers
-        bias = [None]*self.num_layers
-        bias_momentum = [None] * self.num_layers
-        derive_bias = [None]*self.num_layers
-        a = [None]*self.num_layers
-        z = [None]*self.num_layers
-        m = [None]*self.num_examples
-
-        delta = [None] * self.num_layers
-
-
         np.random.seed(self.random_state)
+        self.x = X
+        self.y = Y
+        self.nn_input_dim = len(self.x[0])
+        self.num_examples = len(self.x)
 
-        for idx in range(self.num_layers):
+        neurons = []
+        drop = [None]*self.num_examples
+        weights = [None]* self.num_layers
+        bias = [None]* self.num_layers
+
+        for i in range(self.num_layers):
+            tmp = nr.neuron()
+            neurons.append(tmp)
+
+        for idx in range(self.num_layers): # initialization
             if idx is 0:
-                weights[idx] = (np.random.randn(self.nn_input_dim, self.output_dim[idx]) / np.sqrt(self.nn_input_dim))
+                neurons[idx].weights = (np.random.randn(self.nn_input_dim, self.output_dim[idx]) / np.sqrt(self.nn_input_dim))
             else:
-                weights[idx] = (np.random.randn(self.output_dim[idx - 1], self.output_dim[idx]) / np.sqrt(self.output_dim[idx - 1]))
-            bias[idx] = np.zeros((1, self.output_dim[idx]))
+                neurons[idx].weights = (np.random.randn(self.output_dim[idx - 1], self.output_dim[idx]) / np.sqrt(self.output_dim[idx - 1]))
+            neurons[idx].bias = np.zeros((1, self.output_dim[idx]))
 
         for i in range(0,self.n_iter):
-            rn = random.randint(0, self.num_examples-self.num_batch)
-            train_x = X[rn:rn+self.num_batch]
+            rn = random.randint(0, self.num_examples-self.num_batch) # get a random integer
+            train_x = X[rn:rn+self.num_batch] # select a batch from all data
             train_y = self.y[rn:rn+self.num_batch]
 
-            a[0] = train_x  # set training data
-            probs = None
+            neurons[0].a = train_x # set training data
+            probs = None # forward result
+
             # Forward propagation
             for idx in range(self.num_layers):
-                z[idx] = a[idx].dot(weights[idx]) + bias[idx]
-                if idx+1 < self.num_layers:
-                    a[idx+1] = af.activation[self.act_type[idx]](z[idx])
-                    m[idx] = np.random.binomial(1, self.drop_out, size=z[idx].shape)
-                    a[idx + 1] *= m[idx]
+                neurons[idx].z = neurons[idx].a.dot(neurons[idx].weights)+neurons[idx].bias # z = ax + b
+                if idx+1 < self.num_layers: # if not the last layer
+                    neurons[idx+1].a = af.activation[self.act_type[idx]](neurons[idx].z) # using activation function
+                    drop[idx] = np.random.binomial(1,self.drop_out,size=neurons[idx].z.shape) # dropout
+                    neurons[idx+1].a *= drop[idx] # the next layer input product dropout
                 else:
-                    probs = af.activation[self.act_type[idx]](z[idx])
+                    probs = af.activation[self.act_type[idx]](neurons[idx].z) # the last layer's activation function
 
             # Backpropagation
             for idx in reversed(range(self.num_layers)):
-                if idx + 1 < self.num_layers:
-                    delta[idx] = delta[idx+1].dot(weights[idx+1].T) * af.activation_Grad[self.act_type[idx]](a[idx+1])
+                if idx + 1 < self.num_layers: # if not the last layer
+                    neurons[idx].delta = neurons[idx+1].delta.dot(neurons[idx+1].weights.T) * af.activation_Grad[self.act_type[idx]](neurons[idx+1].a) # calculate the delta
                 else:
-                    if self.expr is None: delta[idx] = cf.cost[self.cost](probs,train_y)
-                    else: delta[idx] = cf.derived_func(self.derive_c,probs,train_y)
-                derive_weights[idx] = (a[idx].T).dot(delta[idx])
-                derive_bias[idx] = np.sum(delta[idx], axis=0, keepdims=True)
+                    if self.expr is None:
+                        neurons[idx].delta = cf.cost[self.cost](probs,train_y)
+                    else: # customize cost function
+                        neurons[idx].delta = cf.derived_func(self.derive_c,probs,train_y)
+                neurons[idx].weights_derivative = (neurons[idx].a.T).dot(neurons[idx].delta)
+                neurons[idx].bias_derivative = np.sum(neurons[idx].delta,axis = 0,keepdims = True)
 
             # Add regularization terms
             for idx in range(self.num_layers):
-                derive_weights[idx] += self.reg_lambda * weights[idx]
+                neurons[idx].weights_derivative += self.reg_lambda * neurons[idx].weights
 
             # Gradient descent parameter update
+            neurons = self.optimizer.function(self.opt_function,neurons)
+
+            # Get All weights and bias
             for idx in range(self.num_layers):
-                weights_momentum[idx] = self.optimizer.function(self.opt_function, self.epsilon, derive_weights[idx],weights_momentum[idx])
-                bias_momentum[idx] = self.optimizer.function(self.opt_function, self.epsilon, derive_bias[idx], bias_momentum[idx])
-                weights[idx] += weights_momentum[idx]
-                bias[idx] += bias_momentum[idx]
+                weights[idx] = neurons[idx].weights
+                bias[idx] = neurons[idx].bias
 
             self.model = {'weight': weights, 'bias': bias}
 
