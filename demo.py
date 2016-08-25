@@ -1,13 +1,15 @@
 import numpy as np
 import pandas as pd
-import neuralnet as nn
+import NeuralNetwork as nn
+import LogisticRegression as lr
 import matplotlib.pyplot as plt
 from sklearn import datasets
+from sklearn import linear_model
 from timeit import default_timer as timer
 
 def generateData(seed = 0):
     np.random.seed(seed)
-    X, y = datasets.make_moons(1000, noise=0.20)
+    X, y = datasets.make_moons(200, noise=0.20)
     return X,y
 
 def plot_decision_boundary(pred_func,X,y):
@@ -28,21 +30,24 @@ def main():
     X, y = generateData()
     start = timer()
     test_x,test_y = generateData(1992)
-    clf = nn.multilayer_perceptron(layers=[
+    clf = nn.multilayerperceptron(layers=[
         nn.layer("tanh",3),
         nn.layer("tanh",5),
         nn.layer("tanh",5),
         nn.layer("softmax",2)
     ],opt_function='momentum',drop_out=1)
+
+    clf = lr.logisticregression()
+    clf = linear_model.LogisticRegression()
     yt = pd.get_dummies(y,prefix='class').values
     tyt = pd.get_dummies(test_y,prefix='class').values
-    clf.fit(test_x, tyt)
+    clf.fit(test_x, test_y)
 
+    print(clf.coef_ )
     timeusage = timer() - start
     print("%f seconds"%timeusage)
 
     y_ = clf.predict(X)
-    print(y_)
     count = 0;
     for i in range(len(y)):
         if (y[i] == y_[i]): count += 1
