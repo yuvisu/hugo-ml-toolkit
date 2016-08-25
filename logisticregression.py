@@ -1,12 +1,15 @@
 import numpy as np
+import functions.penalty as pn
 import functions.activation as af
 
 class logisticregression():
-    def __init__(self,tolerance=0.0001,random_state = 0,n_iter = 100,epsilon=0.01):
+    def __init__(self,tolerance=0.0001,random_state = 0,n_iter = 100,epsilon=0.01,C = 1.0, penalty = "l2"):
         self.tolerance = tolerance
         self.random_state = random_state
         self.n_iter = n_iter
         self.epsilon = epsilon
+        self.C = C
+        self.penalty = penalty
 
     def predict(self, X):
         features = (X - self.mean_x) / self.std_x
@@ -42,16 +45,16 @@ class logisticregression():
 
         self.coef_ = self.w
 
-
     def log_likelihood(self):
         # Get Probablities
         p = af.logistic(self.features.dot(self.w))
         # Get Log Likelihood For Each Row of Dataset
         loglikelihood = self.labels * np.log(p + 1e-24) + (1 - self.labels) * np.log(1 - p + 1e-24)
         # Return Sum
-        return -1 * loglikelihood.sum()
+        return -1 * loglikelihood.sum() +  self.C * pn.penalty[self.penalty](self.w)
 
     def log_likelihood_gradient(self):
         error = self.labels - af.logistic(self.features.dot(self.w))
         product = error * self.features
-        return product.sum(axis=0).reshape(self.w.shape)
+
+        return product.sum(axis=0).reshape(self.w.shape) - (self.C/self.w.size)* pn.penalty[self.penalty](self.w)
