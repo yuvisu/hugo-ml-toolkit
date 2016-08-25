@@ -1,10 +1,11 @@
-﻿###  implement neural network(BP)
+﻿#  Introduction
 
  - implement machine learning algorithms；
  - aim to training personal skill and create a 'ease to use' library
  - current version not support GPU ；
  - current algorithms:
- -- neural network(BP)
+    -- neural network(BP)
+    -- logistic regression
 
 
     

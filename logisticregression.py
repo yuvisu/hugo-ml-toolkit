@@ -19,7 +19,8 @@ class logisticregression():
 
     def predict_proba(self, X):
         features = (X - self.mean_x) / self.std_x
-        return 1 / (1 + np.exp(-features.dot(self.w)))
+        probs = af.logistic(features.dot(self.w))
+        return probs
 
     def fit(self, X, Y):
         np.random.seed(self.random_state)

@@ -38,7 +38,7 @@ def main():
     ],opt_function='momentum',drop_out=1)
 
     clf = lr.logisticregression()
-    clf = linear_model.LogisticRegression()
+    #clf = linear_model.LogisticRegression()
     yt = pd.get_dummies(y,prefix='class').values
     tyt = pd.get_dummies(test_y,prefix='class').values
     clf.fit(test_x, test_y)
